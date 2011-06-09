@@ -51,6 +51,7 @@ public class Spawner
 		} else {
 			classLoader = new SpawnerClassLoader(server,parent);
 		}
+		classLoader.start();
 		List<String> command = new LinkedList<String>();
 		command.add(javaExe);
 		command.add("-cp");
@@ -76,9 +77,10 @@ public class Spawner
 		command.add(file.getAbsolutePath());
 		System.out.println("command: " + command);
 		ProcessBuilder processBuilder = new ProcessBuilder(command);
-		processBuilder.redirectErrorStream();
+//		processBuilder.redirectErrorStream();
 		process = processBuilder.start();
 		final BufferedReader input = new BufferedReader( new InputStreamReader( process.getInputStream() ) );
+		final BufferedReader error = new BufferedReader( new InputStreamReader( process.getErrorStream() ) );
 		Thread thread = new Thread( new Runnable() {
 			public void run() {
 				System.out.println("Inside run");
@@ -86,6 +88,20 @@ public class Spawner
 				try {
 					while((line = input.readLine()) != null) {
 						System.out.println("stdout: " + line);
+					}
+				} catch (IOException e) {
+					e.printStackTrace(System.out);
+				}
+			}
+		});
+		thread.start();
+		thread = new Thread( new Runnable() {
+			public void run() {
+				System.out.println("Inside run");
+				String line;
+				try {
+					while((line = error.readLine()) != null) {
+						System.out.println("stderr: " + line);
 					}
 				} catch (IOException e) {
 					e.printStackTrace(System.out);

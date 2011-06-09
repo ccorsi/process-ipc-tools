@@ -3,6 +3,7 @@
  */
 package org.valhalla.tools.process.classloader;
 
+import java.io.Serializable;
 import java.net.URL;
 import java.util.Enumeration;
 
@@ -10,8 +11,13 @@ import java.util.Enumeration;
  * @author ccorsi
  *
  */
-public class Reply {
+public class Reply implements Serializable {
 	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -1588275222484513483L;
+
 	/**
 	 * @return the name
 	 */
@@ -69,6 +75,15 @@ public class Reply {
 	 */
 	public Enumeration<URL> getUrls() {
 		return urls;
+	}
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "Reply [name=" + name + ", clazz=" + clazz + ", url=" + url
+				+ ", type=" + type + ", urls=" + urls + "]";
 	}
 
 }

@@ -20,6 +20,7 @@ public class SpawnerClassLoader extends SecureClassLoader {
 
 	private SpawnerClassLoaderThread thread;
 	private ServerSocket server;
+	public ClassLoader classLoader;
 
 	/**
 	 * 
@@ -27,6 +28,7 @@ public class SpawnerClassLoader extends SecureClassLoader {
 	public SpawnerClassLoader(ServerSocket server) {
 		super();
 		this.server = server;
+		this.classLoader = Thread.currentThread().getContextClassLoader();
 	}
 
 	/**
@@ -35,6 +37,7 @@ public class SpawnerClassLoader extends SecureClassLoader {
 	public SpawnerClassLoader(ServerSocket server, ClassLoader parent) {
 		super(parent);
 		this.server = server;
+		this.classLoader = Thread.currentThread().getContextClassLoader();
 	}
 
 	public void start() {
@@ -52,52 +55,88 @@ public class SpawnerClassLoader extends SecureClassLoader {
 		
 		private boolean process = true;
 
-		public void run() {
-			boolean success = true;
-			while(process) {
-				Socket socket = null;
+		private class ProcessRequest extends Thread {
+			private Socket socket;
+			
+			ProcessRequest(Socket socket) {
+				super();
+				this.socket = socket;
+			}
+			
+			public void run() {
 				try {
-					System.out.println("Waiting for a request");
-					socket = SpawnerClassLoader.this.server.accept();
-					ObjectInputStream is = new ObjectInputStream( socket.getInputStream() );
+					ObjectInputStream is = new ObjectInputStream(
+							socket.getInputStream());
 					Object object = null;
 					try {
 						object = is.readObject();
 					} catch (ClassNotFoundException cnfe) {
 						cnfe.printStackTrace();
-						// FIXME: Send a request with a null class information....but this should never happen...maybe ignore this all together...
+						// FIXME: Send a request with a null class
+						// information....but this should never happen...maybe
+						// ignore this all together...
 					}
 					Request request = Request.class.cast(object);
+					System.out.println("INSIDE run received request: " + request);
 					Reply reply;
 					switch (request.getType()) {
 					case CLASS:
-						System.out.println("Processing CLASS request for class: " + request.getName());
+						System.out
+								.println("Processing CLASS request for class: "
+										+ request.getName());
 						Class<?> clazz = null;
 						try {
-							clazz = SpawnerClassLoader.this.getParent().loadClass(request.getName());
+							clazz = SpawnerClassLoader.this.classLoader.loadClass(request.getName());
 						} catch (ClassNotFoundException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
+							e.printStackTrace(System.out);
 						}
-						reply = new Reply(request.getName(),clazz);
-						System.out.println("Returning CLASS reply with class: " + reply.getClass());
+						reply = new Reply(request.getName(), clazz);
+						System.out.println("Returning CLASS reply: " + reply);
 						break;
 					case RESOURCE:
-						URL url = SpawnerClassLoader.this.getParent().getResource(request.getName());
-						reply = new Reply(request.getName(),url);
+						System.out.println("Processing RESOURCE request");
+						URL url = SpawnerClassLoader.this.classLoader
+								.getResource(request.getName());
+						reply = new Reply(request.getName(), url);
 						break;
 					case RESOURCES:
-						Enumeration<URL> urls = SpawnerClassLoader.this.getParent().getResources(request.getName());
-						reply = new Reply(request.getName(),urls);
+						System.out.println("Processing RESOURCES request");
+						Enumeration<URL> urls = SpawnerClassLoader.this
+								.classLoader.getResources(request.getName());
+						reply = new Reply(request.getName(), new SerializableEnumeration(urls));
 						break;
 					default:
-						reply = new Reply(request.getName(),(URL)null);
+						reply = new Reply(request.getName(), (URL) null);
 						break;
 					}
-					ObjectOutputStream os = new ObjectOutputStream( socket.getOutputStream() );
+					ObjectOutputStream os = new ObjectOutputStream(
+							socket.getOutputStream());
+					System.out.println("SENDING reply: " + reply);
 					os.writeObject(reply);
-					success = true;
+					System.out.println("SENT REPLY");
 					socket.close();
+					socket = null;
+				} catch (Exception e) {
+					e.printStackTrace();
+				} finally {
+					if( socket != null ) {
+						try {
+							socket.close();
+						} catch (IOException e) {
+						}
+					}
+				}
+			}
+		}
+		
+		public void run() {
+			boolean success = true;
+			while(process) {
+				try {
+					System.out.println("Waiting for a request");
+					Socket socket = SpawnerClassLoader.this.server.accept();
+					new ProcessRequest(socket).start();
+					success = true;
 				} catch (IOException e) {
 					e.printStackTrace();
 					if (success == false) {
@@ -105,14 +144,6 @@ public class SpawnerClassLoader extends SecureClassLoader {
 						System.out.println("Multiple exceptions have been raised....");
 					}
 					success = false;
-				} finally {
-					if (socket != null) {
-						try {
-							socket.close();
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
-					}
 				}
 			}
 		}
