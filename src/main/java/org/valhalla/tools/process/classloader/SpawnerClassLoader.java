@@ -1,5 +1,18 @@
-/**
- * 
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.valhalla.tools.process.classloader;
 
@@ -12,12 +25,17 @@ import java.net.URL;
 import java.security.SecureClassLoader;
 import java.util.Enumeration;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
- * @author ccorsi
+ * @author Claudio Corsi
  *
  */
 public class SpawnerClassLoader extends SecureClassLoader {
 
+	private static final Logger log = LoggerFactory.getLogger(SpawnerClassLoader.class);
+	
 	private SpawnerClassLoaderThread thread;
 	private ServerSocket server;
 	public ClassLoader classLoader;
@@ -41,10 +59,10 @@ public class SpawnerClassLoader extends SecureClassLoader {
 	}
 
 	public void start() {
-		System.out.println("Creating SpawnerClassLoader....");
+		log.info("Creating SpawnerClassLoader....");
 		thread = new SpawnerClassLoaderThread();
 		thread.start();
-		System.out.println("Started SpawnerClassLoader...");
+		log.info("Started SpawnerClassLoader...");
 	}
 	
 	public void stop() {
@@ -71,36 +89,35 @@ public class SpawnerClassLoader extends SecureClassLoader {
 					try {
 						object = is.readObject();
 					} catch (ClassNotFoundException cnfe) {
-						cnfe.printStackTrace();
+						log.debug("An exception was raised while trying to read an object over the wire", cnfe);
 						// FIXME: Send a request with a null class
 						// information....but this should never happen...maybe
 						// ignore this all together...
 					}
 					Request request = Request.class.cast(object);
-					System.out.println("INSIDE run received request: " + request);
+					log.info("INSIDE run received request: {}", request);
 					Reply reply;
 					switch (request.getType()) {
 					case CLASS:
-						System.out
-								.println("Processing CLASS request for class: "
-										+ request.getName());
+						log.info("Processing CLASS request for class: {}",
+								request.getName());
 						Class<?> clazz = null;
 						try {
 							clazz = SpawnerClassLoader.this.classLoader.loadClass(request.getName());
 						} catch (ClassNotFoundException e) {
-							e.printStackTrace(System.out);
+							log.debug("An exception was raised while looking up class: {}", request.getName());
 						}
 						reply = new Reply(request.getName(), clazz);
-						System.out.println("Returning CLASS reply: " + reply);
+						log.info("Returning CLASS reply: {}", reply);
 						break;
 					case RESOURCE:
-						System.out.println("Processing RESOURCE request");
+						log.info("Processing RESOURCE request");
 						URL url = SpawnerClassLoader.this.classLoader
 								.getResource(request.getName());
 						reply = new Reply(request.getName(), url);
 						break;
 					case RESOURCES:
-						System.out.println("Processing RESOURCES request");
+						log.info("Processing RESOURCES request");
 						Enumeration<URL> urls = SpawnerClassLoader.this
 								.classLoader.getResources(request.getName());
 						reply = new Reply(request.getName(), new SerializableEnumeration(urls));
@@ -111,13 +128,13 @@ public class SpawnerClassLoader extends SecureClassLoader {
 					}
 					ObjectOutputStream os = new ObjectOutputStream(
 							socket.getOutputStream());
-					System.out.println("SENDING reply: " + reply);
+					log.info("SENDING reply: {}", reply);
 					os.writeObject(reply);
-					System.out.println("SENT REPLY");
+					log.info("SENT REPLY");
 					socket.close();
 					socket = null;
 				} catch (Exception e) {
-					e.printStackTrace();
+					log.debug("Received an exception while processing request", e);
 				} finally {
 					if( socket != null ) {
 						try {
@@ -133,15 +150,15 @@ public class SpawnerClassLoader extends SecureClassLoader {
 			boolean success = true;
 			while(process) {
 				try {
-					System.out.println("Waiting for a request");
+					log.info("Waiting for a request");
 					Socket socket = SpawnerClassLoader.this.server.accept();
 					new ProcessRequest(socket).start();
 					success = true;
 				} catch (IOException e) {
-					e.printStackTrace();
+					log.info("An exception was raised while waiting for a request", e);
 					if (success == false) {
 						// We might have to stop processing socket requests because of a bigger problem
-						System.out.println("Multiple exceptions have been raised....");
+						log.info("Multiple exceptions have been raised....");
 					}
 					success = false;
 				}
