@@ -1,3 +1,19 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.valhalla.tools.process;
 
 import java.io.BufferedReader;
@@ -14,13 +30,20 @@ import java.util.Properties;
 
 import org.valhalla.tools.process.classloader.SpawnerClassLoader;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * This class will spawn a new process and will execute the main method for the passed class.  
  * It can also execute a given method but will require that the class contain a no-arg 
  * constructor.
+ * 
+ * @author Claudio Corsi
  */
 public class Spawner 
 {
+	private static final Logger log = LoggerFactory.getLogger(Spawner.class);
+	
 	private String className;
 	private String methodName;
 	private SpawnerClassLoader classLoader;
@@ -38,7 +61,7 @@ public class Spawner
 	}
 	
 	public void spawnProcess() throws IOException, InterruptedException {
-		System.out.println("INSIDE spawnProcess");
+		log.info("INSIDE spawnProcess");
 		// Setup the classloader and determine the port used to process the incoming requests.
 		String javaHome = System.getProperty("java.home");
 		String javaExe = javaHome + File.separator + "bin" + File.separator + "java";
@@ -67,7 +90,7 @@ public class Spawner
 			command.add(Options.METHODNAME);
 			command.add(methodName);
 		}
-		// FIXME: Store the system properties to a file that will be loaded by the spawned application.
+		// Store the system properties to a file that will be loaded by the spawned application.
 		Properties props = System.getProperties();
 		File file = File.createTempFile("spawned", ".properties");
 		Writer out = new FileWriter(file);
@@ -75,7 +98,7 @@ public class Spawner
 		out.close();
 		command.add(Options.PROPERTYFILE);
 		command.add(file.getAbsolutePath());
-		System.out.println("command: " + command);
+		log.info("command: {}", command);
 		ProcessBuilder processBuilder = new ProcessBuilder(command);
 //		processBuilder.redirectErrorStream();
 		process = processBuilder.start();
@@ -83,34 +106,34 @@ public class Spawner
 		final BufferedReader error = new BufferedReader( new InputStreamReader( process.getErrorStream() ) );
 		Thread thread = new Thread( new Runnable() {
 			public void run() {
-				System.out.println("Inside run");
+				log.info("Inside run");
 				String line;
 				try {
 					while((line = input.readLine()) != null) {
-						System.out.println("stdout: " + line);
+						log.info("stdout: {}", line);
 					}
 				} catch (IOException e) {
-					e.printStackTrace(System.out);
+					log.debug("An exception was raised while trying to read the next line", e);
 				}
 			}
 		});
 		thread.start();
 		thread = new Thread( new Runnable() {
 			public void run() {
-				System.out.println("Inside run");
+				log.info("Inside run");
 				String line;
 				try {
 					while((line = error.readLine()) != null) {
-						System.out.println("stderr: " + line);
+						log.info("stderr: {} ", line);
 					}
 				} catch (IOException e) {
-					e.printStackTrace(System.out);
+					log.debug("An exception was raised while trying to read the next line", e);
 				}
 			}
 		});
 		thread.start();
 		int result = process.waitFor();
-		System.out.println("Exiting process with: " + result);
+		log.info("Exiting process with: {}", result);
 	}
 	
 	public void exitProcess() {
@@ -129,6 +152,6 @@ public class Spawner
 
 	public static void main( String[] args )
     {
-        System.out.println( "Hello World!" );
+        log.info( "Hello World!" );
     }
 }
