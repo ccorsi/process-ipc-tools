@@ -18,12 +18,15 @@
   <inceptionYear>2011</inceptionYear>
   <developers>
   	<developer>
-  		<id>lead</id>
+  		<id>ccorsi</id>
   		<name>Claudio Corsi</name>
   		<email>claudio@fuesesource.com</email>
   		<url>http://www.fusesource.com</url>
+  		<organization>FUSE Source</organization>
+  		<organizationUrl>http://www.fusesource.com</organizationUrl>
   		<timezone>(GMT-05:00) Eastern Time(US &amp; Canada)</timezone>
   		<roles>
+  			<role>Project Lead</role>
   			<role>Developer</role>
   		</roles>
   	</developer>
