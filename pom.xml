@@ -20,10 +20,7 @@
   	<developer>
   		<id>ccorsi</id>
   		<name>Claudio Corsi</name>
-  		<email>claudio@fuesesource.com</email>
-  		<url>http://www.fusesource.com</url>
-  		<organization>FUSE Source</organization>
-  		<organizationUrl>http://www.fusesource.com</organizationUrl>
+  		<email>clcorsi@yahoo.com</email>
   		<timezone>(GMT-05:00) Eastern Time(US &amp; Canada)</timezone>
   		<roles>
   			<role>Project Lead</role>
@@ -32,7 +29,7 @@
   	</developer>
   </developers>
   <organization>
-  	<name>FUSE Source</name>
+  	<name></name>
   	<url>http://www.fusesource.com</url>
   </organization>
   <dependencies>
