@@ -34,6 +34,7 @@ public class SpawnedClassLoader extends SecureClassLoader {
 
 	private String host;
 	private int port;
+	private boolean debug = false;
 
 	public SpawnedClassLoader(String host, int port) {
 		super();
@@ -48,6 +49,16 @@ public class SpawnedClassLoader extends SecureClassLoader {
 	private void init(String host, int port) {
 		this.host = host;
 		this.port = port;
+		debug = Boolean.parseBoolean(System.getProperty("spawned.debug"));
+	}
+	
+	/**
+	 * @param message
+	 */
+	private void println(String message) {
+		if (debug) {
+		 System.out.println(message);
+		}
 	}
 	
 	/* (non-Javadoc)
@@ -56,16 +67,16 @@ public class SpawnedClassLoader extends SecureClassLoader {
 	@Override
 	protected Class<?> findClass(String className) throws ClassNotFoundException {
 		try {
-			System.out.println("INSIDE findClass - opening socket");
+			println("INSIDE findClass - opening socket");
 			Socket socket = new Socket(host, port);
 			Request request = new Request(className, Type.CLASS);
 			ObjectOutputStream os = new ObjectOutputStream( socket.getOutputStream() );
 			System.out.println("INSIDE findClass - sending request: " + request);
 			os.writeObject( request );
 			ObjectInputStream is = new ObjectInputStream( socket.getInputStream() );
-			System.out.println("INSIDE findClass - waiting for reply");
+			println("INSIDE findClass - waiting for reply");
 			Reply reply = Reply.class.cast( is.readObject() );
-			System.out.println("INSIDE findClass - received reply: " + reply);
+			println("INSIDE findClass - received reply: " + reply);
 			return reply.getClassObject();
 		} catch (UnknownHostException e) {
 			throw new ClassNotFoundException(className, e);
@@ -81,18 +92,18 @@ public class SpawnedClassLoader extends SecureClassLoader {
 	protected URL findResource(String resourceName) {
 		URL url = null;
 		try {
-			System.out.println("INSIDE findResource - opening socket");
+			println("INSIDE findResource - opening socket");
 			Socket socket = new Socket(host, port);
 			Request request = new Request(resourceName, Type.RESOURCE);
 			ObjectOutputStream os = new ObjectOutputStream(
 					socket.getOutputStream());
-			System.out.println("INSIDE findResource - sending request: " + request);
+			println("INSIDE findResource - sending request: " + request);
 			os.writeObject(request);
 			ObjectInputStream is = new ObjectInputStream(
 					socket.getInputStream());
-			System.out.println("INSIDE findResource - waiting for reply");
+			println("INSIDE findResource - waiting for reply");
 			Reply reply = Reply.class.cast(is.readObject());
-			System.out.println("INSIDE findResource - received reply: " + reply);
+			println("INSIDE findResource - received reply: " + reply);
 			url = reply.getUrl();
 		} catch (Exception e) {
 			e.printStackTrace(System.out);
@@ -121,18 +132,18 @@ public class SpawnedClassLoader extends SecureClassLoader {
 	protected Enumeration<URL> findResources(String resourceName) throws IOException {
 		Enumeration<URL> urls = nullurls;
 		try {
-			System.out.println("INSIDE findResources - opening socket");
+			println("INSIDE findResources - opening socket");
 			Socket socket = new Socket(host, port);
 			Request request = new Request(resourceName, Type.RESOURCES);
 			ObjectOutputStream os = new ObjectOutputStream(
 					socket.getOutputStream());
-			System.out.println("INSIDE findResources - sending request: " + request);
+			println("INSIDE findResources - sending request: " + request);
 			os.writeObject(request);
 			ObjectInputStream is = new ObjectInputStream(
 					socket.getInputStream());
-			System.out.println("INSIDE findResources - waiting for reply");
+			println("INSIDE findResources - waiting for reply");
 			Reply reply = Reply.class.cast(is.readObject());
-			System.out.println("INSIDE findResources - received reply: " + reply);
+			println("INSIDE findResources - received reply: " + reply);
 			urls = reply.getUrls();
 		} catch (Exception e) {
 			e.printStackTrace(System.out);

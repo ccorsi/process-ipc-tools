@@ -24,14 +24,14 @@ import java.io.InputStreamReader;
 import java.io.Writer;
 import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
 
-import org.valhalla.tools.process.classloader.SpawnerClassLoader;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.valhalla.tools.process.classloader.SpawnerClassLoader;
 
 /**
  * This class will spawn a new process and will execute the main method for the passed class.  
@@ -50,7 +50,12 @@ public class Spawner
 	private String spawnedClassPath = "";
 	private Process process;
 	private ServerSocket server;
+	private String identifier = "Spawner" + System.currentTimeMillis();
 
+	private volatile boolean processExited;
+
+	private List<String> jvmArgs = Collections.emptyList();
+	
 	public Spawner(String className) {
 		this(className,null);
 	}
@@ -60,30 +65,42 @@ public class Spawner
 		this.methodName = methodName;
 	}
 	
+	public void setJVMArgs(List<String> jvmArgs) {
+		this.jvmArgs = jvmArgs;
+	}
+	
 	public void spawnProcess() throws IOException, InterruptedException {
-		log.info("INSIDE spawnProcess");
+		log.debug("INSIDE spawnProcess");
 		// Setup the classloader and determine the port used to process the incoming requests.
+		// TODO: make the java command configurable.
 		String javaHome = System.getProperty("java.home");
 		String javaExe = javaHome + File.separator + "bin" + File.separator + "java";
-		server = new ServerSocket(0);
-		int port = server.getLocalPort();
-		String hostname = InetAddress.getLocalHost().getHostName();
+		int port = -1;
+		String hostname = null;
 		ClassLoader parent = Thread.currentThread().getContextClassLoader();
-		if(parent == null) {
-			classLoader = new SpawnerClassLoader(server);
-		} else {
-			classLoader = new SpawnerClassLoader(server,parent);
+		parent = (ClassLoader.getSystemClassLoader() == parent) ? null : parent;
+		if (parent != null) {
+			server = new ServerSocket(0);
+			port = server.getLocalPort();
+			hostname = InetAddress.getLocalHost().getHostName();
+			classLoader = new SpawnerClassLoader(server, parent, identifier);
+			classLoader.start();
 		}
-		classLoader.start();
 		List<String> command = new LinkedList<String>();
 		command.add(javaExe);
+		command.addAll(jvmArgs);
 		command.add("-cp");
 		command.add(System.getProperty("java.class.path") + File.pathSeparator + spawnedClassPath);
 		command.add(Spawned.class.getName());
-		command.add(Options.PORT);
-		command.add(String.valueOf(port));
-		command.add(Options.HOST);
-		command.add(hostname);
+		// Create a remote class loader only if the current thread has a context class loader set.
+		if (parent != null) {
+			command.add(Options.PORT);
+			command.add(String.valueOf(port));
+			command.add(Options.HOST);
+			command.add(hostname);
+		} else {
+			command.add(Options.NOCLASSLOADER);
+		}
 		command.add(Options.CLASSNAME);
 		command.add(className);
 		if (methodName != null) {
@@ -100,13 +117,20 @@ public class Spawner
 		command.add(file.getAbsolutePath());
 		log.info("command: {}", command);
 		ProcessBuilder processBuilder = new ProcessBuilder(command);
-//		processBuilder.redirectErrorStream();
+		processBuilder = processBuilder.redirectErrorStream(true);
 		process = processBuilder.start();
-		final BufferedReader input = new BufferedReader( new InputStreamReader( process.getInputStream() ) );
-		final BufferedReader error = new BufferedReader( new InputStreamReader( process.getErrorStream() ) );
-		Thread thread = new Thread( new Runnable() {
+		BufferedReader input = new BufferedReader( new InputStreamReader( process.getInputStream() ) );
+		new Thread( new Runnable() {
+			
+			private BufferedReader input;
+			
+			Runnable setInput(BufferedReader input) {
+				this.input = input;
+				return this;
+			}
+			
 			public void run() {
-				log.info("Inside run");
+				log.debug("Inside run");
 				String line;
 				try {
 					while((line = input.readLine()) != null) {
@@ -116,24 +140,37 @@ public class Spawner
 					log.debug("An exception was raised while trying to read the next line", e);
 				}
 			}
-		});
-		thread.start();
-		thread = new Thread( new Runnable() {
+		}.setInput(input)) {
+			{
+				setName(Spawner.this.identifier + getName());
+				start();
+			}
+		};
+
+		new Thread() {
+			{
+				setName(Spawner.this.identifier + getName());
+				start();
+			}
+			
 			public void run() {
-				log.info("Inside run");
-				String line;
 				try {
-					while((line = error.readLine()) != null) {
-						log.info("stderr: {} ", line);
-					}
-				} catch (IOException e) {
-					log.debug("An exception was raised while trying to read the next line", e);
+					int result = process.waitFor();
+					log.info("Exiting process with: {}", result);
+				} catch (InterruptedException e) {
+					log.error("An exception was generated when waiting for process to exit", e);
+				} finally {
+					Spawner.this.processExited = true;
 				}
 			}
-		});
-		thread.start();
-		int result = process.waitFor();
-		log.info("Exiting process with: {}", result);
+		};
+	}
+	
+	public void stopProcess() {
+		// This will stop the process from continuing by terminating the process.
+		process.destroy();
+		
+		exitProcess();
 	}
 	
 	public void exitProcess() {
@@ -150,8 +187,18 @@ public class Spawner
 		this.spawnedClassPath = spawnedClassPath;
 	}
 
-	public static void main( String[] args )
-    {
-        log.info( "Hello World!" );
-    }
+	/**
+	 * @param identifier
+	 */
+	public void setIdentifier(String identifier) {
+		this.identifier = identifier;
+	}
+
+	/**
+	 * @return the processExited
+	 */
+	public boolean isProcessExited() {
+		return processExited;
+	}
+
 }

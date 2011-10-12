@@ -30,6 +30,7 @@ public class Options {
 	public static final String CLASSNAME = "-c";
 	public static final String METHODNAME =  "-m";
 	public static final String PROPERTYFILE = "-P";
+	public static final String NOCLASSLOADER = "-n";
 	
 	public static final Set<String> options;
 	
@@ -40,6 +41,7 @@ public class Options {
 		options.add(CLASSNAME);
 		options.add(METHODNAME);
 		options.add(PROPERTYFILE);
+		options.add(NOCLASSLOADER);
 	}
 
 }

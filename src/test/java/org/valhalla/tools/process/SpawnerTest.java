@@ -16,9 +16,11 @@
  */
 package org.valhalla.tools.process;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
 import java.io.File;
+import java.util.LinkedList;
+import java.util.List;
 
 import org.junit.Test;
 
@@ -33,7 +35,7 @@ public class SpawnerTest
      */
     @Test public void testApp()
     {
-    	System.out.println(new File("."));
+    	System.out.println(new File(".").getAbsolutePath());
         assertTrue( true );
     }
     
@@ -42,7 +44,20 @@ public class SpawnerTest
     	System.out.println("INSIDE testSpawnedClassLoader");
     	Spawner spawner = new Spawner(RunMeExecute.class.getName());
     	spawner.setSpawnedClassPath("target" + File.separator + "classes");
+		spawner.setIdentifier("SpawnedClassLoader");
     	spawner.spawnProcess();
+    	Thread.sleep(5000);
     	System.out.println("EXITING testSpawnedClassLoader");
+    }
+    
+    @Test public void testSetJVMArgs() throws Exception {
+    	Spawner spawner = new Spawner(RunMeExecute.class.getName());
+    	List<String> jvmArgs = new LinkedList<String>();
+    	jvmArgs.add("-Xms1gb");
+    	jvmArgs.add("-Xmx2gb");
+		spawner.setJVMArgs(jvmArgs);
+		spawner.setIdentifier("SetJVMArgs");
+    	spawner.spawnProcess();
+    	Thread.sleep(5000);
     }
 }

@@ -38,29 +38,34 @@ public class SpawnerClassLoader extends SecureClassLoader {
 	
 	private SpawnerClassLoaderThread thread;
 	private ServerSocket server;
-	public ClassLoader classLoader;
+//	private ClassLoader classLoader;
+	private String identifier;
 
 	/**
 	 * 
 	 */
-	public SpawnerClassLoader(ServerSocket server) {
+	public SpawnerClassLoader(ServerSocket server, String identifier) {
 		super();
 		this.server = server;
-		this.classLoader = Thread.currentThread().getContextClassLoader();
+//		this.classLoader = Thread.currentThread().getContextClassLoader();
+		this.identifier = identifier;
 	}
 
 	/**
 	 * @param parent
 	 */
-	public SpawnerClassLoader(ServerSocket server, ClassLoader parent) {
+	public SpawnerClassLoader(ServerSocket server, ClassLoader parent, String identifier) {
 		super(parent);
 		this.server = server;
-		this.classLoader = Thread.currentThread().getContextClassLoader();
+//		this.classLoader = Thread.currentThread().getContextClassLoader();
+		this.identifier = identifier;
 	}
 
 	public void start() {
 		log.info("Creating SpawnerClassLoader....");
 		thread = new SpawnerClassLoaderThread();
+		thread.setDaemon(true);
+		thread.setName(this.identifier + "SpawnerClassLoader" + thread.getName());
 		thread.start();
 		log.info("Started SpawnerClassLoader...");
 	}
@@ -71,7 +76,7 @@ public class SpawnerClassLoader extends SecureClassLoader {
 	
 	class SpawnerClassLoaderThread extends Thread {
 		
-		private boolean process = true;
+		private volatile boolean process = true;
 
 		private class ProcessRequest extends Thread {
 			private Socket socket;
@@ -89,37 +94,44 @@ public class SpawnerClassLoader extends SecureClassLoader {
 					try {
 						object = is.readObject();
 					} catch (ClassNotFoundException cnfe) {
-						log.debug("An exception was raised while trying to read an object over the wire", cnfe);
+						log.error("An exception was raised while trying to read an object over the wire", cnfe);
 						// FIXME: Send a request with a null class
 						// information....but this should never happen...maybe
 						// ignore this all together...
 					}
 					Request request = Request.class.cast(object);
-					log.info("INSIDE run received request: {}", request);
+					log.debug("INSIDE run received request: {}", request);
 					Reply reply;
 					switch (request.getType()) {
 					case CLASS:
-						log.info("Processing CLASS request for class: {}",
+						log.debug("Processing CLASS request for class: {}",
 								request.getName());
 						Class<?> clazz = null;
 						try {
-							clazz = SpawnerClassLoader.this.classLoader.loadClass(request.getName());
+							clazz = SpawnerClassLoader.this.loadClass(request.getName());
 						} catch (ClassNotFoundException e) {
-							log.debug("An exception was raised while looking up class: {}", request.getName());
+							log.error("An exception was raised while looking up class: {}", request.getName(), e);
+							try {
+								Thread.currentThread().getContextClassLoader().loadClass(request.getName());
+								log.error("Was able to retreive class information for class {}",request.getName());
+							} catch(ClassNotFoundException cnfe) {
+								log.error("Still unable to get a reference to class {}", request.getName());
+								// do nothing...
+							}
 						}
 						reply = new Reply(request.getName(), clazz);
-						log.info("Returning CLASS reply: {}", reply);
+						log.debug("Returning CLASS reply: {}", reply);
 						break;
 					case RESOURCE:
-						log.info("Processing RESOURCE request");
-						URL url = SpawnerClassLoader.this.classLoader
+						log.debug("Processing RESOURCE request");
+						URL url = SpawnerClassLoader.this
 								.getResource(request.getName());
 						reply = new Reply(request.getName(), url);
 						break;
 					case RESOURCES:
-						log.info("Processing RESOURCES request");
+						log.debug("Processing RESOURCES request");
 						Enumeration<URL> urls = SpawnerClassLoader.this
-								.classLoader.getResources(request.getName());
+								.getResources(request.getName());
 						reply = new Reply(request.getName(), new SerializableEnumeration(urls));
 						break;
 					default:
@@ -128,13 +140,13 @@ public class SpawnerClassLoader extends SecureClassLoader {
 					}
 					ObjectOutputStream os = new ObjectOutputStream(
 							socket.getOutputStream());
-					log.info("SENDING reply: {}", reply);
+					log.debug("SENDING reply: {}", reply);
 					os.writeObject(reply);
-					log.info("SENT REPLY");
+					log.debug("SENT REPLY");
 					socket.close();
 					socket = null;
 				} catch (Exception e) {
-					log.debug("Received an exception while processing request", e);
+					log.error("Received an exception while processing request", e);
 				} finally {
 					if( socket != null ) {
 						try {
@@ -150,15 +162,21 @@ public class SpawnerClassLoader extends SecureClassLoader {
 			boolean success = true;
 			while(process) {
 				try {
-					log.info("Waiting for a request");
+					log.debug("Waiting for a request");
 					Socket socket = SpawnerClassLoader.this.server.accept();
-					new ProcessRequest(socket).start();
+					new ProcessRequest(socket) {
+						{
+							this.setDaemon(true);
+							setName(SpawnerClassLoader.this.identifier + getName());
+							start();
+						}
+					};
 					success = true;
 				} catch (IOException e) {
-					log.info("An exception was raised while waiting for a request", e);
+					log.error("An exception was raised while waiting for a request", e);
 					if (success == false) {
 						// We might have to stop processing socket requests because of a bigger problem
-						log.info("Multiple exceptions have been raised....");
+						log.debug("Multiple exceptions have been raised....");
 					}
 					success = false;
 				}
