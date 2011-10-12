@@ -174,13 +174,15 @@ public class Spawner
 	}
 	
 	public void exitProcess() {
-		// Just to get rid of the warning....
-		classLoader.getClass();
+		if( classLoader != null ) {
+			// Just to get rid of the warning....
+			classLoader.getClass();
+		}
 		// Send a request to shutdown the spawned process and return...
 		classLoader = null;
 	}
 	
-    /**
+    	/**
 	 * @param spawnedClassPath the spawnedClassPath to set
 	 */
 	public void setSpawnedClassPath(String spawnedClassPath) {
