@@ -1,0 +1,5 @@
+
+This is a simple project that can be used to execute a java process from within another java process.
+
+The output of the executed process will be sent to what ever slf4j bridge that you decide to use.
+
