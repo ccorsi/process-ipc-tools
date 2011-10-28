@@ -148,11 +148,8 @@ public class Spawner
 		};
 
 		new Thread() {
-			{
-				setName(Spawner.this.identifier + getName());
-				start();
-			}
-			
+			private File file;
+
 			public void run() {
 				try {
 					int result = process.waitFor();
@@ -161,9 +158,19 @@ public class Spawner
 					log.error("An exception was generated when waiting for process to exit", e);
 				} finally {
 					Spawner.this.processExited = true;
+					if (file.exists()) {
+						file.delete();
+					}
 				}
 			}
-		};
+
+			public void setFile(File file) {
+				this.file = file;
+				setName(Spawner.this.identifier + getName());
+				start();
+			}
+		}.setFile(file);
+		
 	}
 	
 	public void stopProcess() {
