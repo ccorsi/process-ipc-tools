@@ -113,12 +113,10 @@ public class SpawnedClassLoader extends SecureClassLoader {
 
 	private static final Enumeration<URL> nullurls = new Enumeration<URL>() {
 
-		@Override
 		public boolean hasMoreElements() {
 			return false;
 		}
 
-		@Override
 		public URL nextElement() {
 			throw new NoSuchElementException();
 		}

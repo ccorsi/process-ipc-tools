@@ -54,13 +54,11 @@ public class SerializableEnumeration implements Enumeration<URL>, Serializable {
 		}
 	}
 	
-	@Override
 	public boolean hasMoreElements() {
 		checkIterator();
 		return this.iterator.hasNext();
 	}
 
-	@Override
 	public URL nextElement() {
 		checkIterator();
 		return this.iterator.next();
